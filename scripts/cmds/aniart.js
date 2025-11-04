@@ -1,57 +1,87 @@
-const axios = require('axios');
-const baseApiUrl = async () => {
-    const base = await axios.get("https://gitlab.com/Rakib-Adil-69/shizuoka-command-store/-/raw/main/apiUrls.json");
-    return base.data.aniart;
+const axios = require("axios");
+const { getStreamFromURL } = global.utils;
+
+
+const models = {
+  "1": "Anime Premium V2",
+  "2": "Cartoon Premium",
+  "3": "Anime Style: Maid Outfit",
+  "4": "Anime Style: Beach Babe",
+  "5": "Anime Style: Sweet Fantasy",
+  "6": "Anime Style: Love Story Comic",
+  "7": "Anime Style: High School Memories",
+  "8": "Anime Style: Festive Christmas",
+  "9": "Anime Art: Pirate Adventure ( One Piece )",
+  "10": "Anime Art: Pop Star Sensation ( Oshi no Ko )",
+  "11": "Anime Art: Ninja Legacy ( Naruto )",
+  "12": "Anime Art: Super Warriors ( DBZ )",
+  "13": "Anime Art: Dark Notebook ( Death Note )",
+  "14": "Anime Art: Eternal Battle ( Bleach )",
+  "15": "Anime Art: Wings of Destiny ( AOT )",
+  "16": "Anime Art: Mystic Magic (Jujutsu Kaisen)",
+  "17": "Anime Art: Tennis Prodigy (ThePrince of Tennis)",
+  "18": "Anime Art: Demon Slayer Chronicles (Demon Slayer)",
+  "19": "Anime Art: Alchemical Adventures (Fullmetal Alchemist)",
+  "20": "Anime Art: Heroic Future (My Hero Academia)",
+  "21": "Anime Art: Prehistoric Quest (Dr Stone)",
+  "22": "Anime Art: Court Clash (Haikyuu)",
+  "23": "Anime Style: Ghibli V1",
+  "24": "Anime Style: Ghibli V2",
+  "25": "Anime Style: Webtoon",
+  
+  
+  
 };
 
 module.exports = {
   config: {
-    name: "aniart",
-    aliases: ["anigen", "animeart"],
-    author: "Rakib Adil",
-    version: "1.0.0",
-    countDown: 10,
-    description: "Generate anime art image from a prompt",
-    guide: "{pn} <prompt>",
-    category: "Ai"
+    name: "animirror",
+    aliases:["aniart"],
+    version: "1.0",
+    author: "SiAM",// Don't change 
+    countDown: 15,
+    role: 2,
+    shortDescription: "Turn yourself into an anime character!",
+    longDescription: "Apply an anime-style filter to an image to turn it into an anime character.",
+    category: "𝗜𝗠𝗔𝗚𝗘 𝗚𝗘𝗡𝗘𝗥𝗔𝗧𝗢𝗥",
+    guide: {
+      en: "{pn} [modelNumber]\nexample: {pn} 2\n\nHere are the available models:\n" + Object.entries(models).map(([number, name]) => `❏ ${number} : ${name}`).join("\n")
+    }
   },
 
-  onStart: async function ({ api, args, event, message}) {
-    const prompt = encodeURIComponent(args.join(" "));
-    if (!prompt) return api.sendMessage(
-      `Please provide a prompt to generate anime art image or use: \n {pn}aniart <prompt> or \n {pn}aniart cyberpunk anime girl`, event.threadID, event.messageID);
+  onStart: async function ({ api, args, message, event }) {
+    try {
+      const [modelNumber] = args;
 
-		api.setMessageReaction("⏳", event.messageID, (err) => {}, true);
+      if (!modelNumber || isNaN(modelNumber) || !models[modelNumber]) {
+        return message.reply("Invalid model number. Please provide a valid model number from the list.");
+      }
 
-		const loadMsg = await message.reply("⏳𝙬𝙖𝙞𝙩 𝙗𝙗𝙮, 𝙮𝙤𝙪𝙧 𝙞𝙢𝙖𝙜𝙚 𝙞𝙨 𝙘𝙧𝙚𝙖𝙩𝙞𝙣𝙜. \n Author: 𝙍𝙖𝙠𝙞𝙗 𝘼𝙙𝙞𝙡") ;
+      if (!(event.type === "message_reply" && event.messageReply.attachments && event.messageReply.attachments.length > 0 && ["photo", "sticker"].includes(event.messageReply.attachments[0].type))) {
+        return message.reply("Please reply to an image to apply the anime filter.⚠");
+      }
 
-    try{
-      
-      const requestId = `rakib-${Date.now()}-${Math.floor(Math.random() * 10000)}`;
-      
-      const baseUrl = await baseApiUrl();
-      const response = await axios.post(`${baseUrl}/rakib`, {
-       inputText: prompt,
-       requestId: requestId 
+      const imageUrl = event.messageReply.attachments[0].url;
+      const encodedImageUrl = encodeURIComponent(imageUrl);
+
+      const processingMessage = message.reply(`Applying the Filter, please wait...\nModel using: ${modelNumber} (${models[modelNumber]}) ⌛`);
+
+      const response = await axios.get(`https://simo-aiart.onrender.com/generate?imageUrl=${encodedImageUrl}&modelNumber=${modelNumber}`);
+
+      const { imageUrl: generatedImageUrl } = response.data;
+      const Stream = await getStreamFromURL(generatedImageUrl);
+
+      await message.reply({
+        body: `Anime Art applied ✨\nModel used: ${modelNumber} (${models[modelNumber]})`,
+        attachment: Stream,
       });
-      
-      
-      const imageUrl = response.data.resultUrl || response.data.response;
-      const adil = imageUrl.split('.').pop();
 
-      api.setMessageReaction("✅", event.messageID, (err) => {}, true);
-		api.unsendMessage(loadMsg.messageID)
-     await api.sendMessage({
-       body : `𝙃𝙚𝙧𝙚 𝙞𝙨 𝙮𝙤𝙪𝙧 𝙖𝙣𝙞𝙢𝙚 𝙖𝙧𝙩 𝙞𝙢𝙖𝙜𝙚: ${prompt} `, 
-       attachment: await global.utils.getStreamFromURL(imageUrl, `image.${adil}`)
-     }, event.threadID, event.messageID);
-     
-    }catch (err) {
-      console.log(err);
-      api.setMessageReaction("❌", event.messageID, (err) => {}, true);
-      api.sendMessage('An error occurred while generating your anime art, please try again later..🙂', 
-                      event.threadID,
-                      event.messageID);
+      message.reaction("✅", event.messageID);
+      message.unsend((await processingMessage).messageID);
+
+    } catch (error) {
+      console.error(error);
+      message.reply("Failed to apply the Anime filter.⚠");
     }
   }
 };

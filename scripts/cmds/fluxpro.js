@@ -1,63 +1,57 @@
-const axios = require('axios');
-const { GoatWrapper } = require('fca-liane-utils');
+const fs = require("fs");
+const path = require("path");
+const axios = require("axios");
 
 module.exports = {
   config: {
     name: "fluxpro",
-    aliases: ["fvf"],
-    version: "1.5",
-    author: "Samir Œ || Modified By Priyanshi Kaur",
-    countDown: 5,
-    role: 2,
-    shortDescription: "Image generator from Fluxpro API",
-    longDescription: "",
-    category: "generator",
-    guide: {
-      en: "{pn} <prompt> --ar 1:1"
-    }
+    aliases: ["fxpro"],
+    author: "ʏᴏᴜʀ ꜰᴀᴛʜᴇʀ✨",
+    version: "2.0",
+    cooldowns: 15,
+    role: 0,
+    shortDescription: "Generate beautiful artwork from your ideas.",
+    longDescription: "Bring your imaginative prompts to life with visually stunning images using the FluxPro AI system.",
+    category: "AI Tools",
+    guide: "{p}fluxpro <your prompt>",
   },
 
-  onStart: async function ({ message, args }) {
-    const waitingMessages = [
-      "🎨 Creating your masterpiece...",
-      "🖌️ Painting with pixels...",
-      "🌈 Summoning colors from the digital realm...",
-      "🔮 Consulting the AI oracle...",
-      "🚀 Launching your imagination into cyberspace..."
-    ];
-
-    const randomWaitingMessage = waitingMessages[Math.floor(Math.random() * waitingMessages.length)];
-    await message.reply(randomWaitingMessage);
-
-    let prompt = args.join(" ");
-    let aspectRatio = "1:1";
-
-    // Extract aspect ratio if provided
-    const arIndex = args.indexOf("--ar");
-    if (arIndex !== -1 && args[arIndex + 1]) {
-      aspectRatio = args[arIndex + 1];
-      args.splice(arIndex, 2);
-      prompt = args.join(" ");
+  onStart: async function ({ message, args, api, event }) {
+    const prompt = args.join(" ");
+    if (!prompt) {
+      return api.sendMessage("⚠ Please provide a prompt for ᴘʀɪɴᴄᴇꜱ  to create an image. Try something vivid or descriptive!", event.threadID);
     }
 
-    try {
-      const apiUrl = `http://api-samirxz.onrender.com/fluxpro?prompt=${encodeURIComponent(prompt)}&ratio=${aspectRatio}`;
-      const imageStream = await global.utils.getStreamFromURL(apiUrl);
+    const startTime = Date.now();
+    api.sendMessage("ᴘʟꜱ ᴡᴀɪᴛ ʙᴀʙʏ 😘😘", event.threadID, event.messageID);
 
-      if (!imageStream) {
-        return message.reply("❌ Oops! The image couldn't be generated. For support, Contact mfacebook.com/PriyanshiKaurJi ❤️");
+    try {
+      const apiUrl = `https://mahi-apis.onrender.com/api/fluxpro?prompt=${encodeURIComponent(prompt)}`;
+      const response = await axios.get(apiUrl);
+
+      const imageUrl = response.data.imageUrl;
+      if (!imageUrl) {
+        return api.sendMessage("❌ Sorry, the image couldn’t be retrieved at this time. Please try again later.", event.threadID);
       }
 
-      return message.reply({
-        body: '✨ Ta-da! Here\'s your Requested Picture! 🖼️',
-        attachment: imageStream
+      const imageResponse = await axios.get(imageUrl, { responseType: "arraybuffer" });
+      const cacheFolderPath = path.join(__dirname, "cache");
+      if (!fs.existsSync(cacheFolderPath)) fs.mkdirSync(cacheFolderPath);
+
+      const imagePath = path.join(cacheFolderPath, `generated_image_${Date.now()}.png`);
+      fs.writeFileSync(imagePath, Buffer.from(imageResponse.data, "binary"));
+
+      const generationTime = ((Date.now() - startTime) / 1000).toFixed(2);
+      const stream = fs.createReadStream(imagePath);
+
+      message.reply({
+        body: `✨ Your image is ready! Based on your prompt:\n*${prompt}*\n\n🕒 Generated in ${generationTime} seconds.`,
+        attachment: stream
       });
+
     } catch (error) {
-      console.error(error);
-      return message.reply("💔 Oh no! Something went wrong");
+      console.error("Image Generation Error:", error);
+      return api.sendMessage("❌ An error occurred while creating your image. Please try a different prompt or try again later.", event.threadID);
     }
   }
 };
-
-const wrapper = new GoatWrapper(module.exports);
-wrapper.applyNoPrefix({ allowPrefix: true });
